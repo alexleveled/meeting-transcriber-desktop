@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+/*
+  Meeting Transcriber design system — C3 AI Studio inspired:
+  light gray sidebar, white cards, blue accents, clean sans-serif.
+  Committed light theme for a consistent SaaS product look.
+*/
+
+:root {
+  --bg: #f4f6f8; /* app canvas (light gray) */
+  --surface: #ffffff; /* cards */
+  --surface-2: #f8fafc; /* subtle inset */
+  --sidebar: #eef1f5; /* sidebar gray */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a; /* slate-900 */
+  --text-muted: #64748b; /* slate-500 */
+  --text-subtle: #94a3b8; /* slate-400 */
+  --accent: #2563eb; /* blue-600 */
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff6ff; /* blue-50 */
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warn: #d97706;
+  --warn-soft: #fffbeb;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-sidebar: var(--sidebar);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+  The app is a fixed-height shell: the window itself never scrolls. Any region that can outgrow
+  its box (transcript, chat conversation, long settings) owns an internal scroller marked with
+  .scroll-slim — never the page.
+*/
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*
+  Styled scrollbar for those internal scrollers. The thumb is drawn inside a transparent border so
+  it reads as a slim floating pill with breathing room, and it only gains contrast on hover.
+*/
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background: var(--text-subtle);
+  background-clip: content-box;
+}
+.scroll-slim::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Chromium still draws stepper arrows at both ends unless they're explicitly removed. */
+.scroll-slim::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Reusable component classes ------------------------------------------------ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn-secondary {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.btn-danger {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+/* Square button holding a single icon — .btn's horizontal padding would otherwise squash the SVG. */
+.btn-icon {
+  padding: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+}
+.btn-icon svg {
+  flex-shrink: 0;
+}
+
+.input {
+  width: 100%;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+  display: block;
+}
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Chat: scroll-to-segment highlight -------------------------------------------- */
+
+.seg-highlight {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: var(--accent-soft);
+  transition: background 2s ease, outline-color 2s ease;
+}
+
+/* Chat: blinking cursor for the in-flight streaming bubble ---------------------- */
+
+@keyframes chat-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.chat-cursor {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--text-muted);
+  animation: chat-cursor-blink 1s step-end infinite;
+}

@@ -1,0 +1,53 @@
+appId: com.leveledai.meeting-transcriber
+productName: Meeting Transcriber
+directories:
+  output: dist-electron
+  buildResources: build
+
+# The asar holds only the tiny esbuild-bundled main+preload (self-contained, zero native deps),
+# so there is nothing to rebuild. The Next server + its native better-sqlite3 ship OUT of asar via
+# extraResources (standalone-in-asar is a known trap for .node loading / dynamic requires).
+npmRebuild: false
+# The esbuild bundle is self-contained (only 'electron' is external, provided by the runtime), and
+# the Next server ships via extraResources — so NO node_modules belong in the asar. Excluding them
+# keeps app.asar tiny (otherwise electron-builder auto-bundles next/react/better-sqlite3 → ~150 MB).
+files:
+  - electron/dist/**
+  - package.json
+  - "!node_modules/**/*"
+extraResources:
+  - from: .next/standalone
+    to: app-server
+    # package-electron.mjs already placed .next/static + public INSIDE .next/standalone, and
+    # swapped better_sqlite3.node to Electron's ABI there.
+  # whisper.cpp Windows binaries (whisper-server.exe + DLLs) for the free Local Whisper provider.
+  # Fetched by scripts/fetch-whisper.mjs (run at the start of `npm run dist`). Models are NOT shipped
+  # here — they download at runtime into userData/models, so this only adds ~15–30 MB.
+  - from: vendor/whisper/win-x64
+    to: whisper
+
+# Installers are published as GitHub Release assets: free hosting, 2 GB per file, and no cost
+# against repo size. The same block is baked into the app so electron-updater knows where to look.
+publish:
+  provider: github
+  owner: alexleveled
+  repo: meeting-transcriber-desktop
+  # Published as a DRAFT, then flipped public by CI once the installer passes the install/boot/
+  # upgrade/uninstall smoke test (scripts/smoke-install.ps1).
+  #
+  # Drafts are invisible to the updater, which is exactly the property we want here: a build that
+  # fails the smoke test stays a draft and installed copies keep the last good release instead of a
+  # broken one. 0.1.4 shipped an app that could not be uninstalled through a
+  # fully green build, because nothing ever ran the installer -- this gate is what closes that hole.
+  #
+  # The trade-off: if the "Publish release" step never runs, the release stays invisible and the
+  # updater silently keeps offering the previous version. Check for stuck drafts if a release seems to vanish.
+  releaseType: draft
+
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: true
+  perMachine: false

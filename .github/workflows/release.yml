@@ -1,0 +1,110 @@
+name: Release
+
+# Tag-driven: `npm run release -- patch` pushes a vX.Y.Z tag, which builds the Windows NSIS
+# installer here and attaches it to a GitHub Release. The in-app updater reads that release.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    # Must be Windows: NSIS target, WASAPI loopback native bits, better-sqlite3 win prebuild.
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    env:
+      # No code signing certificate ($0 distribution). Without this, electron-builder tries to
+      # auto-discover a cert and can trip the known winCodeSign symlink extraction failure.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node 24 to match the machine that generates package-lock.json — its npm 11 resolves a
+      # slimmer tree than npm 10 (Node 22), and npm 10's `npm ci` rejects the npm 11 lock.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # whisper.cpp win-x64 binaries are downloaded by scripts/fetch-whisper.mjs into vendor/
+      # (gitignored). Key on the pinned whisper version so a bump busts the cache.
+      - name: Cache whisper.cpp binaries
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: whisper-win-x64-1.9.1
+          restore-keys: whisper-win-x64-
+
+      - name: Cache electron-builder downloads
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\electron-builder\Cache
+          key: electron-builder-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-builder-${{ runner.os }}-
+
+      # npm install, not npm ci: electron-builder's optional peer (electron-builder-squirrel-windows)
+      # is recorded in the lock by some npm point-releases and not others, and `npm ci` hard-fails on
+      # the mismatch. install honors the lock for everything it can and resolves the gap.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # build/ is gitignored, so build/icon.ico does not exist on a fresh clone. electron-builder
+      # fails without it — this step is not optional.
+      - name: Generate app icon
+        run: node scripts/generate-icon.mjs
+
+      - name: Fetch whisper.cpp binaries
+        run: npm run fetch-whisper
+
+      - name: Build Electron shell (main + preload)
+        run: npm run build:electron:shell
+
+      # Next standalone build + better-sqlite3 ABI swap to Electron's ABI.
+      - name: Package Next standalone
+        run: npm run build:electron
+
+      # Same final step as `npm run dist`, plus --publish always so the installer is uploaded as a
+      # Release asset on the tag. GITHUB_TOKEN is scoped to this repo by `permissions: contents: write`.
+      # electron-builder.yml sets releaseType: draft, so this uploads to a DRAFT release that the
+      # updater cannot see yet. The smoke test below decides whether it ever becomes visible.
+      - name: Build installer and upload to draft release
+        run: npx electron-builder --win nsis --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Cheap structural check on the tree NSIS is about to package: no nested previous build, no
+      # path that would pass MAX_PATH once installed.
+      - name: Verify packaged tree
+        run: npm run verify:package
+
+      # The check that actually matters: run the installer. Installs, boots the app and hits
+      # /api/health, installs again over itself, uninstalls, and asserts the directory is gone.
+      # 0.1.4 shipped an uninstallable app through a green build because nothing here ever executed
+      # the installer.
+      - name: Smoke test the installer
+        run: npm run smoke:install
+
+      # Only now is the release visible to the in-app updater.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: gh release edit "$env:GITHUB_REF_NAME" --draft=false --repo "$env:GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Belt and suspenders: keeps the .exe retrievable from the run even if publishing hiccups.
+      - name: Upload installer artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist-electron/*.exe
+          if-no-files-found: warn
+          retention-days: 14
